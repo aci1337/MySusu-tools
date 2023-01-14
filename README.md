@@ -6,6 +6,9 @@ Using this program can help you save time by quickly extracting strings from an 
 Commands:
 
 -u - Unicode Strings
+
 -a - Ascii Strings
+
 -l - Links that are being taken from strings (foundable)
+
 -all - Creating a folder with the .exe name, putting all the txt inside of 3 difirent .txt files (links, unicode, ascii) and gives the strings (efficient way, but takes alot of time)
