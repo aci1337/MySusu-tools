@@ -11,4 +11,8 @@ Commands:
 
 -l - Links that are being taken from strings (foundable)
 
+-s -save result as the given name (optional)
+
+-av -  check for viruses
+
 -all - Creating a folder with the .exe name, putting all the txt inside of 3 difirent .txt files (links, unicode, ascii) and gives the strings (efficient way, but takes alot of time)
