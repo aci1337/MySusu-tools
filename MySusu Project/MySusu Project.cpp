@@ -137,20 +137,111 @@ int MySusu::find(const char* s) const
     }
     return p - m_str;
 }
+#include <windows.h>
+#include <fstream>
+#include <iostream>
+#include <Psapi.h>
 
+
+#define USER_STARTUP_KEY_NAME "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+#define MACHINE_STARTUP_KEY_NAME "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
+
+void UserStartupApplicationsToFile()
+{
+    HKEY hKey;
+    LONG lngStatus;
+    lngStatus = RegOpenKeyEx(HKEY_CURRENT_USER, USER_STARTUP_KEY_NAME, 0, KEY_QUERY_VALUE, &hKey);
+    if (lngStatus != ERROR_SUCCESS) {
+        return;
+    }
+    TCHAR valueNameBuffer[255];
+    DWORD valueNameBufferLength = sizeof(valueNameBuffer) / sizeof(TCHAR);
+    TCHAR valueBuffer[1024];
+    DWORD valueBufferLength = sizeof(valueBuffer) / sizeof(TCHAR);
+    DWORD index = 0;
+    DWORD chValueType;
+
+    std::ofstream userStartupFile("UserStartupItems.txt");
+
+
+    while ((lngStatus = RegEnumValue(hKey, index++, valueNameBuffer, &valueNameBufferLength, 0,
+        &chValueType, (LPBYTE)valueBuffer, &valueBufferLength)) == ERROR_SUCCESS)
+    {
+        userStartupFile << valueNameBuffer << "  " << valueBuffer << std::endl;
+
+        valueNameBufferLength = sizeof(valueNameBuffer) / sizeof(TCHAR);
+        valueBufferLength = sizeof(valueBuffer) / sizeof(TCHAR);
+    }
+    userStartupFile.close();
+
+    RegCloseKey(hKey);
+}
+
+void MachineStartupApplicationsToFile()
+{
+    HKEY hKey;
+    LONG lngStatus;
+    lngStatus = RegOpenKeyEx(HKEY_LOCAL_MACHINE, MACHINE_STARTUP_KEY_NAME, 0, KEY_QUERY_VALUE, &hKey);
+    if (lngStatus != ERROR_SUCCESS) {
+        return;
+    }
+    TCHAR valueNameBuffer[255];
+    DWORD valueNameBufferLength = sizeof(valueNameBuffer) / sizeof(TCHAR);
+    TCHAR valueBuffer[1024];
+    DWORD valueBufferLength = sizeof(valueBuffer) / sizeof(TCHAR);
+    DWORD index = 0;
+    DWORD chValueType;
+
+    std::ofstream userStartupFile("MachineStartupItems.txt");
+
+
+    while ((lngStatus = RegEnumValue(hKey, index++, valueNameBuffer, &valueNameBufferLength, 0,
+        &chValueType, (LPBYTE)valueBuffer, &valueBufferLength)) == ERROR_SUCCESS)
+    {
+        userStartupFile << valueNameBuffer << "  " << valueBuffer << std::endl;
+
+        valueNameBufferLength = sizeof(valueNameBuffer) / sizeof(TCHAR);
+        valueBufferLength = sizeof(valueBuffer) / sizeof(TCHAR);
+    }
+    userStartupFile.close();
+
+    RegCloseKey(hKey);
+}
+void spoofer() {
+    char windowHandle[100];
+    printf("Enter window handle: ");
+    scanf("%s", windowHandle);
+    HWND hWnd = FindWindow(NULL, windowHandle);
+
+    if (hWnd)
+    {
+        int len = GetWindowTextLength(hWnd);
+
+        char* buffer = (char*)malloc(len + 1);
+
+        if (GetWindowText(hWnd, buffer, len + 1))
+        {
+            SetWindowText(hWnd, "MySusu Panel");
+        }
+
+        free(buffer);
+    }
+} // this is jsut a prototype (it's comming soon tho).
 int main(int argc, char** argv)
 {
-    if (argc < 3)
+    if ((argc >= 2 && argv[3] == "-h"))
     {
-        std::cout << "Usage: file.exe target.exe [flags]\n";
+		fprintf(stderr, "Usage : %s  <commandss> target.exe \n", argv[0]);
         std::cout << "Flags -u = show unicode strings\n";
         std::cout << "Flags -a = show ascii strings\n";
         std::cout << "Flags -l = show links\n";
         std::cout << "Flags -p = show paths\n";
         std::cout << "Flags -all = show all\n";
         std::cout << "Flags -s = save result as the given name (optional)\n";
-        std::cout << "Flags -h = show this help\n";
         std::cout << "Flags -av = check for viruses\n";
+        std::cout << "Flags -h = show this help\n";
+        std::cout << "Flags -runs = check for scheculated running applications on startup.\n";
+        std::cout << "Flags -spoof = change the window title of an existing application window.\n";
         return 0;
     }
 
@@ -161,9 +252,13 @@ int main(int argc, char** argv)
     bool flagAll = false;
     bool flagS = false;
     bool flagAV = false;
+    bool flagTrack = false;
+    bool flagRuns = false;
+    bool spoof = false;
     std::string outputFile;
+    std::string targetFile;
 
-    for (int i = 2; i < argc; i++)
+    for (int i = 1; i < argc; i++)
     {
         std::string flag = argv[i];
         if (flag == "-u")
@@ -196,11 +291,40 @@ int main(int argc, char** argv)
         {
             flagAV = true;
         }
+        else if (flag == "-spoof")
+        {
+            spoof = true;
+        }
+        else if (flag == "-h")
+        {
+            std::cout << "Usage with target: file.exe target.exe [flags]\nUsage without target: file.exe [flags]\n";
+            std::cout << "Flags -u = show unicode strings\n";
+            std::cout << "Flags -a = show ascii strings\n";
+            std::cout << "Flags -l = show links\n";
+            std::cout << "Flags -p = show paths\n";
+            std::cout << "Flags -all = show all\n";
+            std::cout << "Flags -s = save result as the given name (optional)\n";
+            std::cout << "Flags -av = check for viruses\n";
+            std::cout << "Flags -h = show this help\n";
+            std::cout << "Flags -runs = check for scheculated running applications on startup.\n";
+            std::cout << "Flags -spoof = Spoofing a selected title to another title you put the name.\n";
+            return 0;
+        }
+    
+        else if (flag == "-runs")
+        {
+            flagRuns = true;
+        }
+        else
+        {
+            targetFile = argv[i];
+        }
+     
     }
 
     auto startTime = std::chrono::steady_clock::now();
 
-    std::ifstream target(argv[1], std::ios::binary | std::ios::in | std::ios::out);
+    std::ifstream target(targetFile, std::ios::binary | std::ios::in | std::ios::out);
     std::ofstream output;
     if (flagS)
     {
@@ -210,6 +334,19 @@ int main(int argc, char** argv)
     {
         output.open("output.txt");
     }
+    if (spoof)
+    {
+        spoofer();
+        std::cout << "done";
+        return 0;
+    }
+    if (flagRuns)
+    {
+        UserStartupApplicationsToFile();
+        MachineStartupApplicationsToFile();
+        std::cout << "done";
+        return 0;
+    }
     if (!target.is_open())
     {
         std::cout << "Unable to open target.exe\n";
@@ -218,29 +355,13 @@ int main(int argc, char** argv)
 
     if (flagAV)
     {
-        
-        //std::string fileData;
-        //std::ifstream target(argv[1], std::ios::binary | std::ios::in);
-        //if (target.is_open())
-        //{
-          //  target.seekg(0, std::ios::end);
-          //  fileData.resize(target.tellg());
-          //  target.seekg(0, std::ios::beg);
-          //  target.read(&fileData[0], fileData.size());
-          //  target.close();
-        //}
-        /*MySusu virusSignature("Virus");
-        if (fileData.find(virusSignature.c_str()) != std::string::npos)
-        {
-            flagAV = true;
-        }*/
-
         // SOON
     }
     std::unordered_map<long, int> lines;
     long i = 0;
     char c;
     std::string line;
+  
     while (target.get(c))
     {
         if (isprint(c) && (flagU || flagA))
@@ -284,13 +405,20 @@ int main(int argc, char** argv)
                 {
                     output << line.c_str() << std::endl;
                 }
+                else if (flagTrack)
+                {
+                    // Track the app, files, links and paths opened, modified, downloaded and accessed
+                    // and output a log of this
+
+
+                }
                 line.clear();
             }
         }
     }
     if (flagAll)
     {
-        std::string folderName = std::filesystem::path(argv[1]).stem().string();
+        std::string folderName = std::filesystem::path(targetFile).stem().string();
         std::filesystem::create_directory(folderName);
         std::filesystem::rename("output.txt", folderName + "/output.txt");
         std::filesystem::rename("unicode.txt", folderName + "/unicode.txt");
@@ -317,6 +445,7 @@ int main(int argc, char** argv)
         }
     }
 
-    std::cout << "Done! everything it's saved and working enjoy (saved to " << (flagS ? outputFile : "output.txt") << ") and took " << elapsedTime.count() << " seconds\n";
+
+    std::cout << "Done! everything it's saved (saved to " << (flagS ? outputFile : "output.txt") << ") and took " << elapsedTime.count() << " seconds\n";
     return 0;
 }
