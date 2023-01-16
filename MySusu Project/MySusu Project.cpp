@@ -442,7 +442,7 @@ int main(int argc, char** argv)
         else
         {
             std::cout << "NOT A VIRUS, ENJOY!\n";
-        }
+        } // it will be used soon.
     }
 
 
