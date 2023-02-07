@@ -34,4 +34,4 @@ Commands:
 
 -spoof = Spoofing a selected title to another title you put the name.
 
-
+-test = test new features (BETA).
