@@ -141,7 +141,52 @@ int MySusu::find(const char* s) const
 #include <fstream>
 #include <iostream>
 #include <Psapi.h>
+#include <vector>
+#include <algorithm>
+#include <shlwapi.h>
 
+using namespace std;
+
+vector<string> GetFilesFromFolder(string folder)
+{
+    vector<string> files;
+    string search_path = folder + "/*.*";
+    WIN32_FIND_DATA fd;
+    HANDLE hFind = ::FindFirstFile(search_path.c_str(), &fd);
+    if (hFind != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            {
+                files.push_back(fd.cFileName);
+            }
+        } while (::FindNextFile(hFind, &fd));
+        ::FindClose(hFind);
+    }
+
+    return files;
+}
+BOOL PathRemoveFileSpec(LPTSTR lpszPath)
+{
+    if (lpszPath == NULL)
+        return FALSE;
+
+    int nLen = lstrlen(lpszPath);
+    if (nLen == 0)
+        return FALSE;
+
+    int nIndex = nLen - 1;
+    while (nIndex >= 0 && lpszPath[nIndex] != '\\')
+        nIndex--;
+
+    if (nIndex < 0)
+        return FALSE;
+
+    lpszPath[nIndex] = 0;
+
+    return TRUE;
+}
 
 #define USER_STARTUP_KEY_NAME "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
 #define MACHINE_STARTUP_KEY_NAME "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
@@ -207,6 +252,7 @@ void MachineStartupApplicationsToFile()
 
     RegCloseKey(hKey);
 }
+
 void spoofer() {
     char windowHandle[100];
     printf("Enter window handle: ");
@@ -242,6 +288,7 @@ int main(int argc, char** argv)
         std::cout << "Flags -h = show this help\n";
         std::cout << "Flags -runs = check for scheculated running applications on startup.\n";
         std::cout << "Flags -spoof = change the window title of an existing application window.\n";
+        std::cout << "Flags -test = Test feature.\n";
         return 0;
     }
 
@@ -255,6 +302,7 @@ int main(int argc, char** argv)
     bool flagTrack = false;
     bool flagRuns = false;
     bool spoof = false;
+    bool test = false;
     std::string outputFile;
     std::string targetFile;
 
@@ -294,6 +342,10 @@ int main(int argc, char** argv)
         else if (flag == "-spoof")
         {
             spoof = true;
+        }
+        else if (flag == "-test")
+        {
+            test = true;
         }
         else if (flag == "-h")
         {
@@ -347,11 +399,45 @@ int main(int argc, char** argv)
         std::cout << "done";
         return 0;
     }
+
+    if (test) {
+        int pid;
+        cout << "Enter the process ID: ";
+        cin >> pid;
+        HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+        if (hProcess == NULL) {
+            cout << "Could not attach to process." << endl;
+        }
+        cout << "Attached to process." << endl;
+        cout << "The application is downloading/modifying/creating: " << endl;
+
+        // get the process path
+        TCHAR szPath[MAX_PATH];
+        GetModuleFileNameEx(hProcess, NULL, szPath, MAX_PATH);
+
+        // get the folder of the process
+        PathRemoveFileSpec(szPath);
+        string process_folder = szPath;
+
+        // get all files in the folder
+        vector<string> files = GetFilesFromFolder(process_folder);
+
+        // sort the files
+        sort(files.begin(), files.end());
+
+        // print the files
+        for (string file : files) {
+            cout << file << endl;
+        }
+
+        CloseHandle(hProcess);
+    }
     if (!target.is_open())
     {
         std::cout << "Unable to open target.exe\n";
         return 0;
     }
+
 
     if (flagAV)
     {
@@ -442,7 +528,7 @@ int main(int argc, char** argv)
         else
         {
             std::cout << "NOT A VIRUS, ENJOY!\n";
-        } // it will be used soon.
+        }
     }
 
 
